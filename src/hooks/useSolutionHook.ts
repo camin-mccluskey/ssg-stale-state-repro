@@ -1,5 +1,6 @@
-import { useCallback } from "react";
-import { useIsClient, useLocalStorage } from "usehooks-ts";
+import { useCallback, useEffect } from "react";
+import { useLocalStorage } from "usehooks-ts";
+import { type Dispatch, type Reducer, useReducer } from "react";
 
 type SimpleState = {
   name: string;
@@ -13,9 +14,8 @@ export function useSolutionHook(route: string) {
     key,
     simpleReducer,
     { name: "", finished: false },
-    [],
-    [],
-    // NOTE: this must be true rather than false
+    [console.log],
+    [console.log],
     { initializeWithValue: true },
   );
 
@@ -39,7 +39,7 @@ const simpleReducer = (state: SimpleState, action: SimpleAction) => {
     case "edit":
       return { ...state, name: action.value };
     case "finish":
-      return { ...state, finished: true };
+      return { ...state, finished: !state.finished };
     default:
       return type satisfies never;
   }
@@ -60,35 +60,27 @@ const useLocalStorageReducer = <S, A>(
     initialState,
     options,
   );
-
-  const reducerWithLocalStorage = useCallback(
-    (state: S, action: A) => {
-      const newState = reducer(state, action);
-      setSavedState(newState);
-      return newState;
-    },
-    [reducer, setSavedState],
-  );
-  return useReducerWithMiddleware(
-    reducerWithLocalStorage,
+  const [reducedState, dispatch] = useReducerWithMiddleware(
+    reducer,
     savedState,
     middlewareFns,
     afterwareFns,
   );
+
+  useEffect(() => {
+    setSavedState(reducedState);
+  }, [reducedState, setSavedState]);
+
+  return [savedState, dispatch] as const;
 };
 
-import { type Dispatch, type Reducer, useReducer } from "react";
-// import { useIsClient } from 'usehooks-ts'
-
 export type ReducerMiddlewareFn<S, A> = (action: A, state?: S) => void;
-
 export const useReducerWithMiddleware = <S, A>(
   reducer: Reducer<S, A>,
   initialState: S,
   middlewareFns: Array<ReducerMiddlewareFn<S, A>>,
   afterwareFns: Array<ReducerMiddlewareFn<S, A>>,
 ): [S, Dispatch<A>] => {
-  const isClient = useIsClient();
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const dispatchWithMiddleware = useCallback(
@@ -100,9 +92,5 @@ export const useReducerWithMiddleware = <S, A>(
     [middlewareFns, afterwareFns, state],
   );
 
-  // NOTE: The "initialState" is always actually the fresh state, the state from the reducer is stale
-  // We still need the dispatch function from the reducer though
-  // What we'll want to do is come up with better naming conventions and probably combine this function with the
-  // localStorage wrapper func
-  return [initialState, dispatchWithMiddleware];
+  return [state, dispatchWithMiddleware];
 };

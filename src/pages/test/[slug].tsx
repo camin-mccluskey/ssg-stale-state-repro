@@ -3,6 +3,7 @@ import { useProblemHook } from "@/hooks/useProblemHook";
 import { useSolutionHook } from "@/hooks/useSolutionHook";
 import Link from "next/link";
 import { GetStaticProps, InferGetStaticPropsType } from "next/types";
+import { useEffect, useState } from "react";
 import { useReadLocalStorage } from "usehooks-ts";
 
 export const getStaticPaths = () => {
@@ -30,7 +31,12 @@ export default function BrowsePage(
   // const { name, onChangeName, onFinish } = useProblemHook(props.slug);
   const { name, onChangeName, onFinish } = useSolutionHook(props.slug);
   const key = `test-${props.slug}-key`;
-  const data = useReadLocalStorage(key);
+
+  // necessary to avoid hydration error - not relevant for repro
+  const [displayData, setDisplayData] = useState("");
+  const lsData = useReadLocalStorage(key);
+  useEffect(() => setDisplayData(JSON.stringify(lsData)), [lsData]);
+
   return (
     <div className="w-full flex flex-col gap-4">
       <nav className="flex items-center gap-3">
@@ -38,7 +44,7 @@ export default function BrowsePage(
         <Link href="/test/ATS">ATS</Link>
       </nav>
       <Quiz name={name} onChangeName={onChangeName} onFinish={onFinish} />
-      <p>{JSON.stringify(data)}</p>
+      <p>{displayData}</p>
     </div>
   );
 }
