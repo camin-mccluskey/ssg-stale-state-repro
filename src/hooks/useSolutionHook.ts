@@ -15,7 +15,7 @@ export function useSolutionHook(route: string) {
     { name: "", finished: false },
     [],
     [],
-    // FIXME: removing this will fix the other issues (below) but causes hydration errors
+    // NOTE: this must be true rather than false
     { initializeWithValue: true },
   );
 
@@ -100,10 +100,9 @@ export const useReducerWithMiddleware = <S, A>(
     [middlewareFns, afterwareFns, state],
   );
 
+  // NOTE: The "initialState" is always actually the fresh state, the state from the reducer is stale
+  // We still need the dispatch function from the reducer though
+  // What we'll want to do is come up with better naming conventions and probably combine this function with the
+  // localStorage wrapper func
   return [initialState, dispatchWithMiddleware];
-
-  // // FIXME: this will cause the 2 forms to step on each other's state (stale state)
-  // return [isClient ? initialState : state, dispatchWithMiddleware];
-  // // FIXME: this will cause no initial state to be shown
-  // // return [state, dispatchWithMiddleware];
 };
