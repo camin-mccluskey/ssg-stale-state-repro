@@ -1,12 +1,15 @@
 import { useCallback, useEffect } from "react";
-import { useLocalStorage } from "usehooks-ts";
+import { useLocalStorage, useReadLocalStorage } from "usehooks-ts";
 import { type Dispatch, type Reducer, useReducer } from "react";
 
 type SimpleState = {
   name: string;
   finished: boolean;
 };
-type SimpleAction = { type: "edit"; value: string } | { type: "finish" };
+type SimpleAction<S> =
+  | { type: "sync"; value: S }
+  | { type: "edit"; value: string }
+  | { type: "finish" };
 
 export function useSolutionHook(route: string) {
   const key = `test-${route}-key`;
@@ -16,7 +19,7 @@ export function useSolutionHook(route: string) {
     { name: "", finished: false },
     [console.log],
     [console.log],
-    { initializeWithValue: true },
+    { initializeWithValue: false },
   );
 
   const onAnswer = useCallback(
@@ -33,19 +36,23 @@ export function useSolutionHook(route: string) {
   };
 }
 
-const simpleReducer = (state: SimpleState, action: SimpleAction) => {
+const simpleReducer = <S>(state: SimpleState, action: SimpleAction<S>) => {
   const { type } = action;
   switch (type) {
     case "edit":
       return { ...state, name: action.value };
     case "finish":
       return { ...state, finished: !state.finished };
+    case "sync":
+      return action.value;
     default:
       return type satisfies never;
   }
 };
 
-const useLocalStorageReducer = <S, A>(
+type Action<S> = { type: "sync"; value: S };
+
+const useLocalStorageReducer = <S, A extends Action<S>>(
   key: string,
   reducer: Reducer<S, A>,
   initialState: S | (() => S),
@@ -60,16 +67,33 @@ const useLocalStorageReducer = <S, A>(
     initialState,
     options,
   );
+
+  const localStorageReducer = useCallback(
+    (state: S, action: A) => {
+      const newState = reducer(state, action);
+      if (action.type !== "sync") {
+        setSavedState(newState);
+      }
+      return newState;
+    },
+    [reducer, setSavedState],
+  );
+
   const [reducedState, dispatch] = useReducerWithMiddleware(
-    reducer,
+    localStorageReducer,
     savedState,
     middlewareFns,
     afterwareFns,
   );
 
+  // resync the reducer state with savedState
   useEffect(() => {
-    setSavedState(reducedState);
-  }, [reducedState, setSavedState]);
+    dispatch({ type: "sync", value: savedState });
+  }, [savedState, dispatch]);
+
+  console.log("saved state (LS):", savedState);
+  console.log("reduced state:", reducedState);
+  // console.log("local state:", localState);
 
   return [savedState, dispatch] as const;
 };
